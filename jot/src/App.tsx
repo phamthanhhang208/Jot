@@ -1,25 +1,42 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { loadConfig } from "@/lib/config";
+import { useAppInit } from "@/hooks/useInit";
+import { useStore } from "@/store";
 import Onboarding from "@/components/Onboarding";
+import Sidebar from "@/components/Sidebar";
+import NoteList from "@/components/NoteList";
+import Editor from "@/components/Editor";
 
 function App() {
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(false);
+  const notesRootPath = useAppInit();
+  const darkMode = useStore((s) => s.darkMode);
 
   useEffect(() => {
-    loadConfig().then((config) => {
-      setConfigured(config.notesRootPath !== null);
-      setLoading(false);
-    });
-  }, []);
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
-  if (loading) return null;
+  if (notesRootPath === undefined) return null;
 
-  if (!configured) {
-    return <Onboarding onComplete={() => setConfigured(true)} />;
+  if (notesRootPath === null) {
+    return (
+      <Onboarding
+        onComplete={async () => {
+          const config = await loadConfig();
+          if (config.notesRootPath) {
+            useStore.getState().setNotesRootPath(config.notesRootPath);
+          }
+        }}
+      />
+    );
   }
 
-  return <div>Jot loaded</div>;
+  return (
+    <div className="flex h-screen">
+      <Sidebar />
+      <NoteList />
+      <Editor />
+    </div>
+  );
 }
 
 export default App;

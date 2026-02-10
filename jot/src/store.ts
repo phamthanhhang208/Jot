@@ -25,13 +25,14 @@ interface AppState {
   moveToTrash: (id: string) => void;
   restoreFromTrash: (id: string) => void;
   deleteForever: (id: string) => void;
+  setFolders: (folders: string[]) => void;
   addFolder: (name: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
   notesRootPath: null,
   notes: [],
-  folders: ["Work", "Personal"],
+  folders: [],
   activeFolder: "All Notes",
   selectedNoteId: null,
   search: "",
@@ -39,7 +40,16 @@ export const useStore = create<AppState>((set) => ({
 
   setNotesRootPath: (path) => set({ notesRootPath: path }),
 
-  setNotes: (notes) => set({ notes }),
+  setNotes: (notes) => {
+    // Merge note-derived folders with any already-loaded folders (e.g. empty dirs)
+    set((s) => {
+      const folderSet = new Set<string>(s.folders);
+      for (const n of notes) {
+        if (n.folder && n.folder !== TRASH_FOLDER) folderSet.add(n.folder);
+      }
+      return { notes, folders: [...folderSet] };
+    });
+  },
 
   setActiveFolder: (folder) => set({ activeFolder: folder }),
 
@@ -63,6 +73,7 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       notes: [note, ...s.notes],
       selectedNoteId: note.id,
+      folders: !folder || s.folders.includes(folder) ? s.folders : [...s.folders, folder],
     }));
   },
 
@@ -94,7 +105,7 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       notes: s.notes.map((n) =>
         n.id === id
-          ? { ...n, folder: "Work", updatedAt: new Date().toISOString() }
+          ? { ...n, folder: "", updatedAt: new Date().toISOString() }
           : n
       ),
     })),
@@ -104,6 +115,8 @@ export const useStore = create<AppState>((set) => ({
       notes: s.notes.filter((n) => n.id !== id),
       selectedNoteId: s.selectedNoteId === id ? null : s.selectedNoteId,
     })),
+
+  setFolders: (folders) => set({ folders }),
 
   addFolder: (name) =>
     set((s) =>
