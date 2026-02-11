@@ -5,7 +5,7 @@ import { useStore } from "@/store";
 import Onboarding from "@/components/Onboarding";
 import Sidebar from "@/components/Sidebar";
 import NoteList from "@/components/NoteList";
-import Editor from "@/components/Editor";
+import JotEditor from "@/components/JotEditor";
 
 function App() {
   const notesRootPath = useAppInit();
@@ -34,7 +34,7 @@ function App() {
     <div className="flex h-screen">
       <Sidebar />
       <NoteList />
-      <Editor />
+      <JotEditor />
     </div>
   );
 }

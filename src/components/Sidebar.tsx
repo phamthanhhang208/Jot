@@ -10,8 +10,23 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
 import { useStore, getPinnedCount, getTrashCount, getFolderCount } from "@/store";
-import { createFolder } from "@/lib/fs";
+import { createFolder, removeFolderDir, saveNote } from "@/lib/fs";
 
 const TRASH_FOLDER = "__trash__";
 
@@ -26,10 +41,18 @@ export default function Sidebar() {
   const pinnedCount = useStore(getPinnedCount);
   const trashCount = useStore(getTrashCount);
 
+  const deleteFolder = useStore((s) => s.deleteFolder);
+  const rootPath = useStore((s) => s.notesRootPath);
+
   const [collapsed, setCollapsed] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const folderToDeleteNoteCount = folderToDelete
+    ? notes.filter((n) => n.folder === folderToDelete).length
+    : 0;
 
   function handleNewFolderClick() {
     if (collapsed) {
@@ -63,6 +86,28 @@ export default function Sidebar() {
   function cancelFolder() {
     setCreatingFolder(false);
     setNewFolderName("");
+  }
+
+  async function handleConfirmDeleteFolder() {
+    if (!folderToDelete) return;
+    const folderName = folderToDelete;
+    setFolderToDelete(null);
+
+    // Move notes to trash in store (preserves originalFolder)
+    const notesInFolder = notes.filter((n) => n.folder === folderName);
+    deleteFolder(folderName);
+
+    // Persist: save each moved note to .trash dir, then remove the folder dir
+    if (rootPath) {
+      const state = useStore.getState();
+      for (const n of notesInFolder) {
+        const updated = state.notes.find((sn) => sn.id === n.id);
+        if (updated) {
+          saveNote(rootPath, updated).catch(console.error);
+        }
+      }
+      removeFolderDir(rootPath, folderName).catch(console.error);
+    }
   }
 
   return (
@@ -99,16 +144,29 @@ export default function Sidebar() {
         <section>
           {!collapsed && <SectionLabel>Folders</SectionLabel>}
           {folders.map((folder) => (
-            <Row
-              key={folder}
-              icon={<Folder className="size-4 shrink-0" />}
-              label={folder}
-              count={getFolderCount(useStore.getState(), folder)}
-              active={activeFolder === folder}
-              variant="folder"
-              collapsed={collapsed}
-              onClick={() => setActiveFolder(folder)}
-            />
+            <ContextMenu key={folder}>
+              <ContextMenuTrigger asChild>
+                <div>
+                  <Row
+                    icon={<Folder className="size-4 shrink-0" />}
+                    label={folder}
+                    count={getFolderCount(useStore.getState(), folder)}
+                    active={activeFolder === folder}
+                    variant="folder"
+                    collapsed={collapsed}
+                    onClick={() => setActiveFolder(folder)}
+                  />
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() => setFolderToDelete(folder)}
+                >
+                  Delete Folder
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           ))}
 
           {!collapsed && creatingFolder ? (
@@ -183,6 +241,27 @@ export default function Sidebar() {
           )}
         </button>
       </div>
+      {/* ── Delete folder confirmation dialog ──────────────────────── */}
+      <Dialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Delete "{folderToDelete}"?</DialogTitle>
+            <DialogDescription>
+              {folderToDeleteNoteCount > 0
+                ? `This folder contains ${folderToDeleteNoteCount} note${folderToDeleteNoteCount > 1 ? "s" : ""}. All notes will be moved to Trash.`
+                : "This empty folder will be permanently deleted."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFolderToDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDeleteFolder}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

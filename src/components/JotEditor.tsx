@@ -21,11 +21,14 @@ function formatDateHeader(iso: string): string {
 }
 
 function extractTitle(content: string): string {
-  const firstLine = content.split("\n")[0]?.replace(/^#+\s*/, "").trim();
+  const firstLine = content
+    .split("\n")[0]
+    ?.replace(/^#+\s*/, "")
+    .trim();
   return firstLine || "Untitled";
 }
 
-export default function Editor() {
+export default function JotEditor() {
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const notes = useStore((s) => s.notes);
   const updateNote = useStore((s) => s.updateNote);
@@ -52,6 +55,7 @@ export default function Editor() {
   const isTrash = note.folder === TRASH_FOLDER;
 
   function handleContentChange(value: string) {
+    if (isTrash) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const title = extractTitle(value);
@@ -91,7 +95,7 @@ export default function Editor() {
 
       {/* Editor area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl p-6">
+        <div className=" pb-6">
           <textarea
             key={note.id}
             className="w-full h-full min-h-[calc(100vh-12rem)] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed"

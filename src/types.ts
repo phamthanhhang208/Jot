@@ -3,6 +3,7 @@ export interface Note {
   title: string;
   content: string;
   folder: string;
+  originalFolder?: string;
   pinned: boolean;
   createdAt: string;
   updatedAt: string;

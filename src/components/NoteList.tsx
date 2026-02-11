@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pin, Plus, Search } from "lucide-react";
+import { Folder, Pin, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -245,6 +245,14 @@ function NoteCard({
               </>
             )}
           </div>
+
+          {/* Original folder badge for trashed notes */}
+          {isTrash && note.originalFolder && (
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Folder className="size-3 shrink-0" />
+              <span className="truncate">{note.originalFolder}</span>
+            </div>
+          )}
         </button>
       </ContextMenuTrigger>
 

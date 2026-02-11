@@ -53,16 +53,22 @@ function parseFrontMatter(raw: string): {
 }
 
 function buildFrontMatter(note: Note): string {
-  return [
+  const lines = [
     "---",
     `title: ${note.title}`,
     `id: ${note.id}`,
     `folder: ${note.folder}`,
+  ];
+  if (note.originalFolder) {
+    lines.push(`originalFolder: ${note.originalFolder}`);
+  }
+  lines.push(
     `pinned: ${note.pinned}`,
     `createdAt: ${note.createdAt}`,
     `updatedAt: ${note.updatedAt}`,
     "---",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 
@@ -118,6 +124,7 @@ export async function loadAllNotes(
         title: meta.title ?? "Untitled",
         content,
         folder: meta.folder ?? "",
+        originalFolder: meta.originalFolder || undefined,
         pinned: meta.pinned === "true",
         createdAt: meta.createdAt ?? new Date().toISOString(),
         updatedAt: meta.updatedAt ?? new Date().toISOString(),
@@ -152,6 +159,7 @@ export async function loadAllNotes(
             folder: isTrash
               ? TRASH_FOLDER
               : (meta.folder ?? folderName),
+            originalFolder: meta.originalFolder || undefined,
             pinned: meta.pinned === "true",
             createdAt: meta.createdAt ?? new Date().toISOString(),
             updatedAt: meta.updatedAt ?? new Date().toISOString(),
@@ -186,6 +194,18 @@ export async function createFolder(
   name: string,
 ): Promise<void> {
   await mkdir(`${rootPath}/${name}`, { recursive: true });
+}
+
+/** Remove a folder directory from disk. */
+export async function removeFolderDir(
+  rootPath: string,
+  name: string,
+): Promise<void> {
+  try {
+    await remove(`${rootPath}/${name}`, { recursive: true });
+  } catch {
+    // folder may not exist, ignore
+  }
 }
 
 export async function deleteFile(

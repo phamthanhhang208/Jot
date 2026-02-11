@@ -25,6 +25,7 @@ interface AppState {
   moveToTrash: (id: string) => void;
   restoreFromTrash: (id: string) => void;
   deleteForever: (id: string) => void;
+  deleteFolder: (folderName: string) => void;
   setFolders: (folders: string[]) => void;
   addFolder: (name: string) => void;
 }
@@ -95,7 +96,12 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       notes: s.notes.map((n) =>
         n.id === id
-          ? { ...n, folder: TRASH_FOLDER, updatedAt: new Date().toISOString() }
+          ? {
+              ...n,
+              originalFolder: n.folder !== TRASH_FOLDER ? n.folder : n.originalFolder,
+              folder: TRASH_FOLDER,
+              updatedAt: new Date().toISOString(),
+            }
           : n
       ),
       selectedNoteId: s.selectedNoteId === id ? null : s.selectedNoteId,
@@ -105,7 +111,12 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       notes: s.notes.map((n) =>
         n.id === id
-          ? { ...n, folder: "", updatedAt: new Date().toISOString() }
+          ? {
+              ...n,
+              folder: n.originalFolder || "",
+              originalFolder: undefined,
+              updatedAt: new Date().toISOString(),
+            }
           : n
       ),
     })),
@@ -115,6 +126,23 @@ export const useStore = create<AppState>((set) => ({
       notes: s.notes.filter((n) => n.id !== id),
       selectedNoteId: s.selectedNoteId === id ? null : s.selectedNoteId,
     })),
+
+  deleteFolder: (folderName) =>
+    set((s) => {
+      const now = new Date().toISOString();
+      const notes = s.notes.map((n) =>
+        n.folder === folderName
+          ? { ...n, originalFolder: folderName, folder: TRASH_FOLDER, updatedAt: now }
+          : n
+      );
+      const folders = s.folders.filter((f) => f !== folderName);
+      const selectedNoteId =
+        s.selectedNoteId && notes.find((n) => n.id === s.selectedNoteId)?.folder === TRASH_FOLDER
+          ? null
+          : s.selectedNoteId;
+      const activeFolder = s.activeFolder === folderName ? "All Notes" : s.activeFolder;
+      return { notes, folders, selectedNoteId, activeFolder };
+    }),
 
   setFolders: (folders) => set({ folders }),
 
