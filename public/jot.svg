@@ -1,0 +1,10 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Notebook Body -->
+                    <rect x="25" y="15" width="55" height="70" rx="4" stroke="currentColor" stroke-width="4"/>
+                    <!-- Spiral Binding -->
+                    <path d="M20 25H30M20 38H30M20 51H30M20 64H30M20 77H30" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    <!-- The 'J' Scribble -->
+                    <path d="M60 35V60C60 65.5228 55.5228 70 50 70C44.4772 70 40 65.5228 40 60" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                    <!-- Pen Nib overlap -->
+                    <path d="M68 25L60 35L55 30L63 20L68 25Z" fill="currentColor"/>
+                </svg>

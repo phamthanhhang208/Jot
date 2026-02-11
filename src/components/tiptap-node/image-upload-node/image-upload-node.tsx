@@ -149,7 +149,7 @@ function useFileUpload(options: UploadOptions) {
           )
         )
         options.onError?.(
-          error instanceof Error ? error : new Error("Upload failed")
+          error instanceof Error ? error : new Error(String(error))
         )
       }
       return null

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid"
-import { writeFile, mkdir } from "@tauri-apps/plugin-fs"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { invoke, convertFileSrc } from "@tauri-apps/api/core"
+import { appDataDir } from "@tauri-apps/api/path"
 import { useStore } from "@/store"
 import type { Node as PMNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
@@ -373,33 +373,29 @@ export const handleImageUpload = async (
     )
   }
 
-  const rootPath = useStore.getState().notesRootPath
-  if (!rootPath) {
-    throw new Error("Notes root path not set")
-  }
-
   if (abortSignal?.aborted) {
     throw new Error("Upload cancelled")
   }
 
   onProgress?.({ progress: 10 })
 
+  const dataDir = await appDataDir()
   const ext = file.name.split(".").pop() || "png"
   const fileName = `${uuidv4()}.${ext}`
-  const assetsDir = `${rootPath}/.assets`
-  const filePath = `${assetsDir}/${fileName}`
-
-  await mkdir(assetsDir, { recursive: true })
-  onProgress?.({ progress: 30 })
+  const assetsDir = `${dataDir}/assets`
 
   const buffer = await file.arrayBuffer()
-  onProgress?.({ progress: 60 })
+  onProgress?.({ progress: 30 })
 
   if (abortSignal?.aborted) {
     throw new Error("Upload cancelled")
   }
 
-  await writeFile(filePath, new Uint8Array(buffer))
+  const filePath = await invoke<string>("save_image", {
+    dir: assetsDir,
+    fileName,
+    data: Array.from(new Uint8Array(buffer)),
+  })
   onProgress?.({ progress: 100 })
 
   return convertFileSrc(filePath)

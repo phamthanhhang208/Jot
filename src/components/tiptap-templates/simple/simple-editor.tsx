@@ -17,7 +17,6 @@ import { Selection } from "@tiptap/extensions";
 import { HashtagDecoration } from "@/components/tiptap-extension/hashtag-decoration-extension";
 
 // --- UI Primitives ---
-import { Button } from "@/components/tiptap-ui-primitive/button";
 import { Spacer } from "@/components/tiptap-ui-primitive/spacer";
 import {
   Toolbar,
@@ -45,22 +44,12 @@ import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button";
 import { TextButton } from "@/components/tiptap-ui/text-button";
 import {
   ColorHighlightPopover,
-  ColorHighlightPopoverContent,
   ColorHighlightPopoverButton,
 } from "@/components/tiptap-ui/color-highlight-popover";
-import {
-  LinkPopover,
-  LinkContent,
-  LinkButton,
-} from "@/components/tiptap-ui/link-popover";
+import { LinkPopover, LinkButton } from "@/components/tiptap-ui/link-popover";
 import { MarkButton } from "@/components/tiptap-ui/mark-button";
 import { TextAlignButton } from "@/components/tiptap-ui/text-align-button";
 import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button";
-
-// --- Icons ---
-import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon";
-import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon";
-import { LinkIcon } from "@/components/tiptap-icons/link-icon";
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint";
@@ -78,8 +67,8 @@ const MainToolbarContent = ({
   onLinkClick,
   isMobile,
 }: {
-  onHighlighterClick: () => void;
-  onLinkClick: () => void;
+  onHighlighterClick?: () => void;
+  onLinkClick?: () => void;
   isMobile: boolean;
 }) => {
   return (
@@ -95,10 +84,10 @@ const MainToolbarContent = ({
 
       <ToolbarGroup>
         <TextButton />
-        <HeadingDropdownMenu levels={[1, 2, 3, 4]} portal={isMobile} />
+        <HeadingDropdownMenu levels={[1, 2, 3, 4]} portal={true} />
         <ListDropdownMenu
           types={["bulletList", "orderedList", "taskList"]}
-          portal={isMobile}
+          portal={true}
         />
         <BlockquoteButton />
         <CodeBlockButton />
@@ -147,35 +136,6 @@ const MainToolbarContent = ({
   );
 };
 
-const MobileToolbarContent = ({
-  type,
-  onBack,
-}: {
-  type: "highlighter" | "link";
-  onBack: () => void;
-}) => (
-  <>
-    <ToolbarGroup>
-      <Button data-style="ghost" onClick={onBack}>
-        <ArrowLeftIcon className="tiptap-button-icon" />
-        {type === "highlighter" ? (
-          <HighlighterIcon className="tiptap-button-icon" />
-        ) : (
-          <LinkIcon className="tiptap-button-icon" />
-        )}
-      </Button>
-    </ToolbarGroup>
-
-    <ToolbarSeparator />
-
-    {type === "highlighter" ? (
-      <ColorHighlightPopoverContent />
-    ) : (
-      <LinkContent />
-    )}
-  </>
-);
-
 interface SimpleEditorProps {
   noteId: string;
   initialContent: Content;
@@ -191,9 +151,7 @@ export function SimpleEditor({
 }: SimpleEditorProps) {
   const isMobile = useIsBreakpoint();
   const { height } = useWindowSize();
-  const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
-    "main",
-  );
+
   const toolbarRef = useRef<HTMLDivElement>(null);
   const onContentChangeRef = useRef(onContentChange);
   const [toolbarHeight, setToolbarHeight] = useState(0);
@@ -208,57 +166,58 @@ export function SimpleEditor({
     }
   });
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    editable: !readOnly,
-    editorProps: {
-      attributes: {
-        autocomplete: "off",
-        autocorrect: "off",
-        autocapitalize: "off",
-        "aria-label": "Main content area, start typing to enter text.",
-        class: "simple-editor",
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      editable: !readOnly,
+      editorProps: {
+        attributes: {
+          autocomplete: "off",
+          autocorrect: "off",
+          autocapitalize: "off",
+          "aria-label": "Main content area, start typing to enter text.",
+          class: "simple-editor",
+        },
+      },
+      extensions: [
+        StarterKit.configure({
+          horizontalRule: false,
+          link: {
+            openOnClick: false,
+            enableClickSelection: true,
+          },
+        }),
+        HorizontalRule,
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Highlight.configure({ multicolor: true }),
+        Image,
+        Typography,
+        Superscript,
+        Subscript,
+        Selection,
+        HashtagDecoration,
+        ImageUploadNode.configure({
+          accept: "image/*",
+          maxSize: MAX_FILE_SIZE,
+          limit: 3,
+          upload: handleImageUpload,
+          onError: (error) => console.error("Upload failed:", error),
+        }),
+      ],
+      content: initialContent,
+      onUpdate: ({ editor }) => {
+        onContentChangeRef.current?.(editor.getJSON());
       },
     },
-    extensions: [
-      StarterKit.configure({
-        horizontalRule: false,
-        link: {
-          openOnClick: false,
-          enableClickSelection: true,
-        },
-      }),
-      HorizontalRule,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Highlight.configure({ multicolor: true }),
-      Image,
-      Typography,
-      Superscript,
-      Subscript,
-      Selection,
-      HashtagDecoration,
-      ImageUploadNode.configure({
-        accept: "image/*",
-        maxSize: MAX_FILE_SIZE,
-        limit: 3,
-        upload: handleImageUpload,
-        onError: (error) => console.error("Upload failed:", error),
-      }),
-    ],
-    content: initialContent,
-    onUpdate: ({ editor }) => {
-      onContentChangeRef.current?.(editor.getJSON());
-    },
-  }, [noteId]);
+    [noteId],
+  );
 
   const rect = useCursorVisibility({
     editor,
     overlayHeight: toolbarHeight,
   });
-
-  const effectiveMobileView = isMobile ? mobileView : "main";
 
   return (
     <div className="simple-editor-wrapper">
@@ -274,18 +233,7 @@ export function SimpleEditor({
                 : {}),
             }}
           >
-            {effectiveMobileView === "main" ? (
-              <MainToolbarContent
-                onHighlighterClick={() => setMobileView("highlighter")}
-                onLinkClick={() => setMobileView("link")}
-                isMobile={isMobile}
-              />
-            ) : (
-              <MobileToolbarContent
-                type={effectiveMobileView === "highlighter" ? "highlighter" : "link"}
-                onBack={() => setMobileView("main")}
-              />
-            )}
+            <MainToolbarContent isMobile={false} />
           </Toolbar>
         )}
 
