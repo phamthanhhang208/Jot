@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import type { Note } from "./types";
+import { extractTags } from "./lib/tags";
 
 const TRASH_FOLDER = "__trash__";
 
@@ -12,6 +13,7 @@ interface AppState {
   selectedNoteId: string | null;
   search: string;
   darkMode: boolean;
+  activeTag: string | null;
 
   setNotesRootPath: (path: string) => void;
   setNotes: (notes: Note[]) => void;
@@ -28,6 +30,7 @@ interface AppState {
   deleteFolder: (folderName: string) => void;
   setFolders: (folders: string[]) => void;
   addFolder: (name: string) => void;
+  setActiveTag: (tag: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -38,6 +41,7 @@ export const useStore = create<AppState>((set) => ({
   selectedNoteId: null,
   search: "",
   darkMode: false,
+  activeTag: null,
 
   setNotesRootPath: (path) => set({ notesRootPath: path }),
 
@@ -52,7 +56,7 @@ export const useStore = create<AppState>((set) => ({
     });
   },
 
-  setActiveFolder: (folder) => set({ activeFolder: folder }),
+  setActiveFolder: (folder) => set({ activeFolder: folder, activeTag: null }),
 
   setSelectedNote: (id) => set({ selectedNoteId: id }),
 
@@ -150,6 +154,8 @@ export const useStore = create<AppState>((set) => ({
     set((s) =>
       s.folders.includes(name) ? s : { folders: [...s.folders, name] }
     ),
+
+  setActiveTag: (tag) => set({ activeTag: tag }),
 }));
 
 // Selectors
@@ -190,4 +196,28 @@ export function getTrashCount(state: AppState): number {
 
 export function getFolderCount(state: AppState, folder: string): number {
   return state.notes.filter((n) => n.folder === folder).length;
+}
+
+let _cachedNotes: Note[] = [];
+let _cachedTags: { tag: string; count: number }[] = [];
+
+export function getAllTags(state: AppState): { tag: string; count: number }[] {
+  if (state.notes === _cachedNotes) return _cachedTags;
+  _cachedNotes = state.notes;
+
+  const tagCounts = new Map<string, number>();
+
+  for (const note of state.notes) {
+    if (note.folder === TRASH_FOLDER) continue;
+    const tags = extractTags(note.content);
+    for (const tag of tags) {
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    }
+  }
+
+  _cachedTags = [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag));
+
+  return _cachedTags;
 }

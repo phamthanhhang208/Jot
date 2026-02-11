@@ -4,6 +4,7 @@ import {
   Pin,
   Folder,
   FolderPlus,
+  Hash,
   Trash2,
   Settings,
   PanelLeft,
@@ -19,13 +20,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-} from "@/components/ui/context-menu";
-import { useStore, getPinnedCount, getTrashCount, getFolderCount } from "@/store";
+import { useStore, getPinnedCount, getTrashCount, getFolderCount, getAllTags } from "@/store";
 import { createFolder, removeFolderDir, saveNote } from "@/lib/fs";
 
 const TRASH_FOLDER = "__trash__";
@@ -43,6 +38,10 @@ export default function Sidebar() {
 
   const deleteFolder = useStore((s) => s.deleteFolder);
   const rootPath = useStore((s) => s.notesRootPath);
+
+  const allTags = useStore(getAllTags);
+  const activeTag = useStore((s) => s.activeTag);
+  const setActiveTag = useStore((s) => s.setActiveTag);
 
   const [collapsed, setCollapsed] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -144,29 +143,17 @@ export default function Sidebar() {
         <section>
           {!collapsed && <SectionLabel>Folders</SectionLabel>}
           {folders.map((folder) => (
-            <ContextMenu key={folder}>
-              <ContextMenuTrigger asChild>
-                <div>
-                  <Row
-                    icon={<Folder className="size-4 shrink-0" />}
-                    label={folder}
-                    count={getFolderCount(useStore.getState(), folder)}
-                    active={activeFolder === folder}
-                    variant="folder"
-                    collapsed={collapsed}
-                    onClick={() => setActiveFolder(folder)}
-                  />
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem
-                  variant="destructive"
-                  onClick={() => setFolderToDelete(folder)}
-                >
-                  Delete Folder
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+            <Row
+              key={folder}
+              icon={<Folder className="size-4 shrink-0" />}
+              label={folder}
+              count={getFolderCount(useStore.getState(), folder)}
+              active={activeFolder === folder}
+              variant="folder"
+              collapsed={collapsed}
+              onClick={() => setActiveFolder(folder)}
+              onDelete={() => setFolderToDelete(folder)}
+            />
           ))}
 
           {!collapsed && creatingFolder ? (
@@ -203,6 +190,25 @@ export default function Sidebar() {
             </button>
           )}
         </section>
+
+        {/* Tags */}
+        {allTags.length > 0 && (
+          <section>
+            {!collapsed && <SectionLabel>Tags</SectionLabel>}
+            {allTags.map(({ tag, count }) => (
+              <Row
+                key={`tag-${tag}`}
+                icon={<Hash className="size-4 shrink-0" />}
+                label={tag}
+                count={count}
+                active={activeTag === tag}
+                variant="smart"
+                collapsed={collapsed}
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              />
+            ))}
+          </section>
+        )}
 
         {/* System */}
         <section className="border-t pt-3">
@@ -284,6 +290,7 @@ function Row({
   variant,
   collapsed,
   onClick,
+  onDelete,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -292,9 +299,10 @@ function Row({
   variant: "smart" | "folder" | "trash";
   collapsed: boolean;
   onClick: () => void;
+  onDelete?: () => void;
 }) {
   const base =
-    "flex w-full items-center rounded-md py-1.5 text-sm cursor-pointer select-none";
+    "group flex w-full items-center rounded-md py-1.5 text-sm cursor-pointer select-none";
 
   let stateClass: string;
   if (active && variant === "smart") {
@@ -319,8 +327,24 @@ function Row({
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">{label}</span>
+          {onDelete && (
+            <span
+              role="button"
+              tabIndex={-1}
+              title="Delete folder"
+              className="hidden group-hover:flex items-center text-destructive hover:text-destructive/80"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="size-3.5" />
+            </span>
+          )}
           {count > 0 && (
-            <span className="text-xs tabular-nums opacity-60">{count}</span>
+            <span className={`text-xs tabular-nums opacity-60${onDelete ? " group-hover:hidden" : ""}`}>
+              {count}
+            </span>
           )}
         </>
       )}

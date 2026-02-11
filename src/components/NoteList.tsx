@@ -9,6 +9,7 @@ import {
   ContextMenuItem,
 } from "@/components/ui/context-menu";
 import { useStore } from "@/store";
+import { extractTags } from "@/lib/tags";
 import type { Note } from "@/types";
 
 const TRASH_FOLDER = "__trash__";
@@ -44,10 +45,12 @@ function getPreview(content: string, max = 60): string {
   if (!content) return "";
 
   let plain: string;
-  if (content.trimStart().startsWith("[{")) {
-    // PlateJS JSON → walk nodes for text
+  const trimmed = content.trimStart();
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[{")) {
+    // Tiptap / ProseMirror JSON → walk nodes for text
     try {
-      const nodes: unknown[] = JSON.parse(content);
+      const parsed: unknown = JSON.parse(content);
       const parts: string[] = [];
       function walk(n: unknown) {
         if (n && typeof n === "object") {
@@ -55,19 +58,32 @@ function getPreview(content: string, max = 60): string {
           if (typeof obj.text === "string") {
             parts.push(obj.text);
           }
+          if (Array.isArray(obj.content)) {
+            for (const c of obj.content) walk(c);
+          }
           if (Array.isArray(obj.children)) {
             for (const c of obj.children) walk(c);
           }
         }
       }
-      for (const node of nodes) walk(node);
+      if (Array.isArray(parsed)) {
+        for (const node of parsed) walk(node);
+      } else {
+        // Skip the first top-level node (title)
+        const doc = parsed as Record<string, unknown>;
+        const nodes = Array.isArray(doc.content) ? doc.content.slice(1) : [];
+        for (const node of nodes) walk(node);
+      }
       plain = parts.join(" ");
     } catch {
       plain = content;
     }
   } else {
-    // Markdown → strip syntax
-    plain = content
+    // Plain text / markdown → skip first line (title), strip syntax
+    const lines = content.split("\n");
+    plain = lines
+      .slice(1)
+      .join("\n")
       .replace(/^#{1,6}\s+/gm, "")
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/\*(.+?)\*/g, "$1")
@@ -100,6 +116,8 @@ export default function NoteList() {
   const deleteForever = useStore((s) => s.deleteForever);
   const folders = useStore((s) => s.folders);
   const allNotes = useStore((s) => s.notes);
+  const activeTag = useStore((s) => s.activeTag);
+  const setActiveTag = useStore((s) => s.setActiveTag);
 
   const isTrash = activeFolder === "Trash";
 
@@ -127,8 +145,14 @@ export default function NoteList() {
       );
     }
 
+    if (activeTag) {
+      filtered = filtered.filter((n) =>
+        extractTags(n.content).includes(activeTag),
+      );
+    }
+
     return filtered;
-  }, [allNotes, activeFolder, search]);
+  }, [allNotes, activeFolder, search, activeTag]);
 
   function handleCreate() {
     const folder = SPECIAL_FOLDERS.includes(activeFolder) ? "" : activeFolder;
@@ -139,7 +163,21 @@ export default function NoteList() {
     <div className="flex h-screen w-65 flex-col border-r bg-background">
       {/* ── Header ───────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <h2 className="text-sm font-semibold truncate">{activeFolder}</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-sm font-semibold truncate">{activeFolder}</h2>
+          {activeTag && (
+            <span className="flex items-center gap-1 text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
+              #{activeTag}
+              <button
+                onClick={() => setActiveTag(null)}
+                className="hover:text-foreground cursor-pointer"
+                title="Clear tag filter"
+              >
+                &times;
+              </button>
+            </span>
+          )}
+        </div>
         {!isTrash && (
           <Button size="icon-xs" onClick={handleCreate}>
             <Plus className="size-3.5" />

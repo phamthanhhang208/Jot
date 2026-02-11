@@ -1,7 +1,9 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import { Pin, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/store";
+import { SimpleEditor } from "@/components/tiptap-templates/simple/simple-editor";
+import type { Content } from "@tiptap/react";
 
 const TRASH_FOLDER = "__trash__";
 
@@ -20,12 +22,36 @@ function formatDateHeader(iso: string): string {
   return `${date} · ${time}`;
 }
 
-function extractTitle(content: string): string {
-  const firstLine = content
-    .split("\n")[0]
-    ?.replace(/^#+\s*/, "")
-    .trim();
-  return firstLine || "Untitled";
+/** Extract title from Tiptap JSON: first text content of the doc. */
+function extractTitleFromJSON(json: object): string {
+  const doc = json as { content?: Array<{ content?: Array<{ text?: string }> }> };
+  if (!doc.content) return "Untitled";
+  for (const node of doc.content) {
+    if (node.content) {
+      const text = node.content
+        .map((child) => child.text ?? "")
+        .join("")
+        .trim();
+      if (text) return text;
+    }
+  }
+  return "Untitled";
+}
+
+function parseContent(raw: string): Content {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Legacy plain text — wrap in a simple doc
+    return {
+      type: "doc",
+      content: raw.split("\n").map((line) => ({
+        type: "paragraph",
+        content: line ? [{ type: "text", text: line }] : [],
+      })),
+    };
+  }
 }
 
 export default function JotEditor() {
@@ -44,6 +70,18 @@ export default function JotEditor() {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const handleContentChange = useCallback(
+    (json: object) => {
+      if (!note) return;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        const title = extractTitleFromJSON(json);
+        updateNote(note.id, { content: JSON.stringify(json), title });
+      }, 800);
+    },
+    [note, updateNote],
+  );
+
   if (!note) {
     return (
       <div className="flex flex-1 min-w-0 items-center justify-center text-muted-foreground">
@@ -53,15 +91,6 @@ export default function JotEditor() {
   }
 
   const isTrash = note.folder === TRASH_FOLDER;
-
-  function handleContentChange(value: string) {
-    if (isTrash) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      const title = extractTitle(value);
-      updateNote(note!.id, { content: value, title });
-    }, 800);
-  }
 
   function handleDeleteForever() {
     deleteForever(note!.id);
@@ -95,16 +124,12 @@ export default function JotEditor() {
 
       {/* Editor area */}
       <div className="flex-1 overflow-y-auto">
-        <div className=" pb-6">
-          <textarea
-            key={note.id}
-            className="w-full h-full min-h-[calc(100vh-12rem)] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed"
-            defaultValue={note.content}
-            onChange={(e) => handleContentChange(e.target.value)}
-            readOnly={isTrash}
-            placeholder="Start writing…"
-          />
-        </div>
+        <SimpleEditor
+          noteId={note.id}
+          initialContent={parseContent(note.content)}
+          readOnly={isTrash}
+          onContentChange={handleContentChange}
+        />
       </div>
 
       {/* Bottom bar */}
