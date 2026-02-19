@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from "uuid"
 import { invoke, convertFileSrc } from "@tauri-apps/api/core"
 import { appDataDir } from "@tauri-apps/api/path"
-import { useStore } from "@/store"
 import type { Node as PMNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
 import {

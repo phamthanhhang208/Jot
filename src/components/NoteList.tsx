@@ -114,7 +114,6 @@ export default function NoteList() {
   const moveToTrash = useStore((s) => s.moveToTrash);
   const restoreFromTrash = useStore((s) => s.restoreFromTrash);
   const deleteForever = useStore((s) => s.deleteForever);
-  const folders = useStore((s) => s.folders);
   const allNotes = useStore((s) => s.notes);
   const activeTag = useStore((s) => s.activeTag);
   const setActiveTag = useStore((s) => s.setActiveTag);
